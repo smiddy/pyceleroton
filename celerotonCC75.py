@@ -27,7 +27,14 @@ class celerotonCC75(serial.Serial):
         pass
 
     def start(self):
-        pass
+        startByte = b'x\02x\02x\FC'
+        self.write(startByte)
+        answer = self.read()
+        if startByte is not answer:
+            self.errCheck(answer)
+        else:
+            logging.log(logging.DEBUG, "Motor started.")
+        return
 
     def stop(self):
         pass
