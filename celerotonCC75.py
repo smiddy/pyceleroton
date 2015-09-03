@@ -5,6 +5,7 @@ import binascii
 import io
 import time
 import logging
+import struct
 
 
 class celerotonCC75(serial.Serial):
@@ -24,10 +25,18 @@ class celerotonCC75(serial.Serial):
         self.xonxoff = False
         self.rtscts = False
         self.dsrdtr = False
-        pass
+        if not self.isOpen():
+            raise RuntimeError('Port cannot be opened.')
+        else:
+            logging.log(logging.DEBUG, "Port opened.")
+        # Reset the controller to make sure it is not in faulty state
+        self.reset()
+        return
 
     def start(self):
-        startByte = b'x\02x\02x\FC'
+        """Starts the motor.
+        """
+        startByte = b'\x02\x02\xFC'
         self.write(startByte)
         answer = self.read()
         if startByte is not answer:
@@ -37,13 +46,15 @@ class celerotonCC75(serial.Serial):
         return
 
     def stop(self):
-        stopByte = b'x\02x\02x\FC'
+        """Stops the motor.
+        """
+        stopByte = b'\x02\x03\xFB'
         self.write(stopByte)
         answer = self.read()
         if stopByte is not answer:
             self.errCheck(answer)
         else:
-            logging.log(logging.DEBUG, "Motor started.")
+            logging.log(logging.DEBUG, "Motor stopped.")
         return
 
     def getStatus(self):
@@ -57,6 +68,27 @@ class celerotonCC75(serial.Serial):
         pass
 
     def errCheck(self, errCode):
+        errInt = struct.unpack('>bbhhb', errCode)
+        # Check for the error
+        if int('0000', 16) == errInt[2]:
+            print("Everthing OK.")
+        elif int('4001', 16) == errInt[2]:
+            raise RuntimeError('Unknown command.')
+        elif int('4002', 16) == errInt[2]:
+            raise RuntimeError('Wrong checksum.')
+        elif int('4004', 16) == errInt[2]:
+            raise RuntimeError('Invalid format.')
+        elif int('4008', 16) == errInt[2]:
+            raise RuntimeError('Read only.')
+        elif int('4010', 16) == errInt[2]:
+            raise RuntimeError('Type mismatch.')
+        elif int('4020', 16) == errInt[2]:
+            raise RuntimeError('Unknown variable.')
+        else:
+            raise RuntimeError('Cannot identify error.')
+        return
+
+    def ackError(self, errCode):
         pass
 
     def reset(self):
@@ -69,6 +101,15 @@ class celerotonCC75(serial.Serial):
 
     def monitor(self, valuename):
         pass
+
+    def checksum(self, command):
+        pass
+
+    def hexInv(self, hexStr):
+        val = int(hexStr, 8)
+        nbits = 8  # Set the number of required bits
+        invHexStr = hex((~val + (1 << nbits)) % (1 << nbits))
+        return invHexStr
 
 if __name__ == '__main__':
     logging.basicConfig(filename="DEBUG_celeroton.log",
