@@ -38,8 +38,8 @@ class celerotonCC75(serial.Serial):
         """
         startByte = b'\x02\x02\xFC'
         self.write(startByte)
-        answer = self.read()
-        if startByte is not answer:
+        answer = self.read(16)
+        if startByte != answer:
             self.errCheck(answer)
         else:
             logging.log(logging.DEBUG, "Motor started.")
@@ -50,8 +50,8 @@ class celerotonCC75(serial.Serial):
         """
         stopByte = b'\x02\x03\xFB'
         self.write(stopByte)
-        answer = self.read()
-        if stopByte is not answer:
+        answer = self.read(16)
+        if stopByte != answer:
             self.errCheck(answer)
         else:
             logging.log(logging.DEBUG, "Motor stopped.")
@@ -85,10 +85,10 @@ class celerotonCC75(serial.Serial):
         pass
 
     def reset(self):
-        resetByte = (00000000000000000).to_bytes(17, byteorder='big')
+        resetByte = (0000000000000000).to_bytes(16, byteorder='big')
         self.write(resetByte)
         answer = self.read()
-        if (b'\x00') is not answer:
+        if (b'') is not answer:
             raise RuntimeError("Cannot reset controller.")
         return
 
@@ -111,4 +111,6 @@ if __name__ == '__main__':
                         ' - %(message)s')
     ctCC75_400 = celerotonCC75('COM10')
     ctCC75_400.start()
+    time.sleep(3)
     ctCC75_400.stop()
+    ctCC75_400.close()
