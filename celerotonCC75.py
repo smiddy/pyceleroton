@@ -50,7 +50,7 @@ class celerotonCC75(serial.Serial):
         """
         startByte = b'\x02\x02\xFC'
         self.write(startByte)
-        answer = self.read(16)
+        answer = self.read(2)
         if startByte != answer:
             self.errCheck(answer)
         else:
@@ -62,7 +62,7 @@ class celerotonCC75(serial.Serial):
         """
         stopByte = b'\x02\x03\xFB'
         self.write(stopByte)
-        answer = self.read(16)
+        answer = self.read(2)
         if stopByte != answer:
             self.errCheck(answer)
         else:
@@ -72,7 +72,7 @@ class celerotonCC75(serial.Serial):
     def getStatus(self):
         statusByte = b'\x02\x00\xFE'
         self.write(statusByte)
-        answer = self.read(16)
+        answer = self.read(2)
         # Case for OK status
         if 5 == len(answer):
             statusInt = struct.unpack('<bbbbb', answer)
@@ -125,7 +125,8 @@ class celerotonCC75(serial.Serial):
             raise ValueError('Unknown error code.')
         return
 
-    def ackError(self, errCode):
+    def ackError(self, statusCode):
+        statusInt = struct.unpack('<bbbbb', statusCode)
         pass
 
     def reset(self):
@@ -140,7 +141,9 @@ class celerotonCC75(serial.Serial):
         pass
 
     def checksum(self, command):
-        pass
+        commandSum = sum(command)
+        checksum = ~(commandSum + 1) & 0xFF
+        return checksum
 
     def hexInv(self, hexStr):
         val = int(hexStr, 8)
@@ -154,7 +157,9 @@ if __name__ == '__main__':
                         format='%(asctime)s - %(name)s - %(levelname)s'
                         ' - %(message)s')
     ctCC75_400 = celerotonCC75('COM10')
-    ctCC75_400.getStatus()
+    checkInput = (2, 0)
+    testi = ctCC75_400.checksum(checkInput)
+#     ctCC75_400.getStatus()
 #     ctCC75_400.start()
 #     time.sleep(3)
 #     ctCC75_400.stop()
