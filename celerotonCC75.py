@@ -76,7 +76,7 @@ class celerotonCC75(serial.Serial):
         # Case for OK status
         if 5 == len(answer):
             statusInt = struct.unpack('<bbbbb', answer)
-            statusString = self.errDict[statusInt[2]]
+            statusString = self.statusDict[statusInt[2]]
             if 0 == statusInt[2]:
                 print(statusString)
                 return
@@ -91,7 +91,7 @@ class celerotonCC75(serial.Serial):
                 raise ValueError('Unknown status code.')
         elif 7 == len(answer):
             statusInt = struct.unpack('<bbhhb', answer)
-            statusString = self.errDict[statusInt[2]]
+            statusString = self.statusDict[statusInt[2]]
             if (int('0200', 16) == statusInt[2]):
                 self.ackError(answer)
             elif (int('0100', 16) == statusInt[2] or
