@@ -22,7 +22,7 @@ class celerotonCC75(serial.Serial):
                          bytesize=serial.EIGHTBITS, timeout=1, xonxoff=False,
                          rtscts=False, dsrdtr=False)
         self.reset()
-        # dictionary for the error messages
+        # dictionary for error messages
         self.errDict = {int('0000', 16): 'OK',
                         int('4001', 16): 'Unknown command',
                         int('4002', 16): 'Wrong checksum',
@@ -31,6 +31,18 @@ class celerotonCC75(serial.Serial):
                         int('4010', 16): 'Type mismatch',
                         int('4020', 16): 'Unknown variable',
                         }
+        # dictionary for status messages
+        self.statusDict = {int('0000', 16): 'OK',
+                           int('0008', 16): 'Overtemperature',
+                           int('0010', 16): 'Overvoltage',
+                           int('0020', 16): 'Undervoltage',
+                           int('0040', 16): 'Stall 1',
+                           int('0080', 16): 'Stall 2',
+                           int('0100', 16): 'Stall 3',
+                           int('0200', 16): 'Overspeed',
+                           int('4000', 16): 'Enable',
+                           int('8000', 16): 'Motor overtemperature'
+                           }
         return
 
     def start(self):
@@ -58,8 +70,40 @@ class celerotonCC75(serial.Serial):
         return
 
     def getStatus(self):
-        # statusByte = b'\x02\x00\xFE'
-        pass
+        statusByte = b'\x02\x00\xFE'
+        self.write(statusByte)
+        answer = self.read(16)
+        # Case for OK status
+        if 5 == len(answer):
+            statusInt = struct.unpack('<bbbbb', answer)
+            statusString = self.errDict[statusInt[2]]
+            if 0 == statusInt[2]:
+                print(statusString)
+                return
+            elif (int('0008', 16) == statusInt[2] or
+                  int('0010', 16) == statusInt[2] or
+                  int('0020', 16) == statusInt[2]):
+                self.ackError(answer)
+            elif (int('0040', 16) == statusInt[2] or
+                  int('0080', 16) == statusInt[2]):
+                print(statusString)
+            else:
+                raise ValueError('Unknown status code.')
+        elif 7 == len(answer):
+            statusInt = struct.unpack('<bbhhb', answer)
+            statusString = self.errDict[statusInt[2]]
+            if (int('0200', 16) == statusInt[2]):
+                self.ackError(answer)
+            elif (int('0100', 16) == statusInt[2] or
+                  int('4000', 16) == statusInt[2] or
+                  int('8000', 16) == statusInt[2]):
+                print(statusString)
+            else:
+                raise ValueError('Unknown status code.')
+            print(statusString)
+        else:
+            raise ValueError('Unknown status code.')
+        return
 
     def readValue(self, valuename):
         pass
@@ -73,7 +117,7 @@ class celerotonCC75(serial.Serial):
         :param answer: Answer of the controller
         :type answer: bytes
         """
-        errInt = struct.unpack('>bbhhb', answer)
+        errInt = struct.unpack('<bbhhb', answer)
         try:
             errString = self.errDict[errInt[2]]
             raise RuntimeError(errString)
@@ -110,7 +154,8 @@ if __name__ == '__main__':
                         format='%(asctime)s - %(name)s - %(levelname)s'
                         ' - %(message)s')
     ctCC75_400 = celerotonCC75('COM10')
-    ctCC75_400.start()
-    time.sleep(3)
-    ctCC75_400.stop()
-    ctCC75_400.close()
+    ctCC75_400.getStatus()
+#     ctCC75_400.start()
+#     time.sleep(3)
+#     ctCC75_400.stop()
+#     ctCC75_400.close()
