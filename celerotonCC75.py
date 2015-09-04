@@ -17,18 +17,26 @@ class celerotonCC75(serial.Serial):
         '''
         Constructor
         '''
-        self.port = serPort
-        self.baudrate = 57600
-        self.stopbits = serial.STOPBITS_ONE
-        self.bytesize = serial.EIGHTBITS
-        self.timeout = 1                      # timeout in s
-        self.xonxoff = False
-        self.rtscts = False
-        self.dsrdtr = False
-        if not self.isOpen():
-            raise RuntimeError('Port cannot be opened.')
-        else:
-            logging.log(logging.DEBUG, "Port opened.")
+        super().__init__(serPort, baudrate=57600, stopbits=serial.STOPBITS_ONE,
+                         bytesize=serial.EIGHTBITS, timeout=1, xonxoff=False,
+                         rtscts=False, dsrdtr=False)
+#         if str == type(serPort):
+#             self.portstr = serPort
+#         elif int == type(serPort):
+#             self.port = serPort
+#         else:
+#             raise TypeError('serPort must be of type str or int.')
+#         self.baudrate = 57600
+#         self.stopbits = serial.STOPBITS_ONE
+#         self.bytesize = serial.EIGHTBITS
+#         self.timeout = 1                      # timeout in s
+#         self.xonxoff = False
+#         self.rtscts = False
+#         self.dsrdtr = False
+#         if not self.isOpen():
+#             raise RuntimeError('Port cannot be opened.')
+#         else:
+#             logging.log(logging.DEBUG, "Port opened.")
         # Reset the controller to make sure it is not in faulty state
         self.reset()
         return
@@ -58,7 +66,7 @@ class celerotonCC75(serial.Serial):
         return
 
     def getStatus(self):
-        statusByte = b'\x02\x00\xFE'
+        # statusByte = b'\x02\x00\xFE'
         pass
 
     def readValue(self, valuename):
@@ -116,3 +124,6 @@ if __name__ == '__main__':
                         level=logging.DEBUG,
                         format='%(asctime)s - %(name)s - %(levelname)s'
                         ' - %(message)s')
+    ctCC75_400 = celerotonCC75('COM10')
+    ctCC75_400.start()
+    ctCC75_400.stop()
