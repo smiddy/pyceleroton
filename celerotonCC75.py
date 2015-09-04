@@ -17,28 +17,20 @@ class celerotonCC75(serial.Serial):
         '''
         Constructor
         '''
+        # Import the existing constructor
         super().__init__(serPort, baudrate=57600, stopbits=serial.STOPBITS_ONE,
                          bytesize=serial.EIGHTBITS, timeout=1, xonxoff=False,
                          rtscts=False, dsrdtr=False)
-#         if str == type(serPort):
-#             self.portstr = serPort
-#         elif int == type(serPort):
-#             self.port = serPort
-#         else:
-#             raise TypeError('serPort must be of type str or int.')
-#         self.baudrate = 57600
-#         self.stopbits = serial.STOPBITS_ONE
-#         self.bytesize = serial.EIGHTBITS
-#         self.timeout = 1                      # timeout in s
-#         self.xonxoff = False
-#         self.rtscts = False
-#         self.dsrdtr = False
-#         if not self.isOpen():
-#             raise RuntimeError('Port cannot be opened.')
-#         else:
-#             logging.log(logging.DEBUG, "Port opened.")
-        # Reset the controller to make sure it is not in faulty state
         self.reset()
+        # dictionary for the error messages
+        self.errDict = {int('0000', 16): 'OK',
+                        int('4001', 16): 'Unknown command',
+                        int('4002', 16): 'Wrong checksum',
+                        int('4004', 16): 'Invalid format',
+                        int('4008', 16): 'Readonly',
+                        int('4010', 16): 'Type mismatch',
+                        int('4020', 16): 'Unknown variable',
+                        }
         return
 
     def start(self):
@@ -75,25 +67,18 @@ class celerotonCC75(serial.Serial):
     def writeValue(self, valuename, valuenr):
         pass
 
-    def errCheck(self, errCode):
-        errInt = struct.unpack('>bbhhb', errCode)
-        # Check for the error
-        if int('0000', 16) == errInt[2]:
-            print("Everthing OK.")
-        elif int('4001', 16) == errInt[2]:
-            raise RuntimeError('Unknown command.')
-        elif int('4002', 16) == errInt[2]:
-            raise RuntimeError('Wrong checksum.')
-        elif int('4004', 16) == errInt[2]:
-            raise RuntimeError('Invalid format.')
-        elif int('4008', 16) == errInt[2]:
-            raise RuntimeError('Read only.')
-        elif int('4010', 16) == errInt[2]:
-            raise RuntimeError('Type mismatch.')
-        elif int('4020', 16) == errInt[2]:
-            raise RuntimeError('Unknown variable.')
-        else:
-            raise RuntimeError('Cannot identify error.')
+    def errCheck(self, answer):
+        """Takes the answer of the controller and raises error
+
+        :param answer: Answer of the controller
+        :type answer: bytes
+        """
+        errInt = struct.unpack('>bbhhb', answer)
+        try:
+            errString = self.errDict[errInt[2]]
+            raise RuntimeError(errString)
+        except:
+            raise ValueError('Unknown error code.')
         return
 
     def ackError(self, errCode):
