@@ -5,7 +5,6 @@ import binascii
 import io
 import time
 import logging
-import struct
 
 
 class celerotonCC75(serial.Serial):
@@ -50,7 +49,7 @@ class celerotonCC75(serial.Serial):
         """
         startByte = b'\x02\x02\xFC'
         self.write(startByte)
-        answer = self.read(2)
+        answer = self.read(16)
         if startByte != answer:
             self.errCheck(answer)
         else:
@@ -62,7 +61,7 @@ class celerotonCC75(serial.Serial):
         """
         stopByte = b'\x02\x03\xFB'
         self.write(stopByte)
-        answer = self.read(2)
+        answer = self.read(16)
         if stopByte != answer:
             self.errCheck(answer)
         else:
@@ -70,12 +69,18 @@ class celerotonCC75(serial.Serial):
         return
 
     def getStatus(self):
+        """Get the current status.
+
+        The function demands the current status of the controller.
+        If there is a problem, the funtion tries to use method ackError
+        to clear them.
+        """
         statusByte = b'\x02\x00\xFE'
         self.write(statusByte)
-        answer = self.read(2)
+        answer = self.read(16)
         # Case for OK status
         if 5 == len(answer):
-            statusInt = struct.unpack('<bbbbb', answer)
+            statusInt = struct.unpack('<BBBBB', answer)
             statusString = self.statusDict[statusInt[2]]
             if 0 == statusInt[2]:
                 print(statusString)
@@ -83,17 +88,17 @@ class celerotonCC75(serial.Serial):
             elif (int('0008', 16) == statusInt[2] or
                   int('0010', 16) == statusInt[2] or
                   int('0020', 16) == statusInt[2]):
-                self.ackError(answer)
+                self.ackError(answer, statusString)
             elif (int('0040', 16) == statusInt[2] or
                   int('0080', 16) == statusInt[2]):
                 print(statusString)
             else:
                 raise ValueError('Unknown status code.')
         elif 7 == len(answer):
-            statusInt = struct.unpack('<bbhhb', answer)
+            statusInt = struct.unpack('<BBHHB', answer)
             statusString = self.statusDict[statusInt[2]]
             if (int('0200', 16) == statusInt[2]):
-                self.ackError(answer)
+                self.ackError(answer, statusString)
             elif (int('0100', 16) == statusInt[2] or
                   int('4000', 16) == statusInt[2] or
                   int('8000', 16) == statusInt[2]):
@@ -112,7 +117,7 @@ class celerotonCC75(serial.Serial):
         pass
 
     def errCheck(self, answer):
-        """Takes the answer of the controller and raises error
+        """Takes the answer of the controller and raises error.
 
         :param answer: Answer of the controller
         :type answer: bytes
@@ -125,12 +130,52 @@ class celerotonCC75(serial.Serial):
             raise ValueError('Unknown error code.')
         return
 
-    def ackError(self, statusCode):
-        statusInt = struct.unpack('<bbbbb', statusCode)
-        pass
+    def ackError(self, statusCode, statusStr):
+        """Acknowledge an error
+
+        The function takes the answered statusCode of the controller and the
+        already found statusStr. The user is asked to acknowledge the error
+        and, if answered with yes, the error is aknowledged.
+
+        :param statusCode: Complete answer of the controller
+        :type statusCode: bytes
+        :param statusStr: String of the status (for user)
+        :type statusStr: str
+        """
+        understand = False
+        print('Status:', statusStr, '\n')
+        while not understand:
+            choice = input('Do you want to acknowledge the error?[y/N]: ')
+            if choice == 'y' or choice == 'Y':
+                understand = True
+                statusInt = struct.unpack('<BBBBB', statusCode)
+                checksum = self.checksum((4, 1,
+                                          statusInt[2], statusInt[2]))
+                # Create the command Byte
+                ackInt = (4, 1, statusInt[2])
+                ackBytes = struct.pack('<BBB', *ackInt)
+                # TODO write correct input string
+                ackBytes = (ackBytes + struct.pack('>B', statusInt[2]) +
+                            bytes([checksum]))
+                self.write(ackBytes)
+                answer = self.read(16)
+                if b'\x02\x01\xfd' != answer:
+                    raise RuntimeError('Cannot acknowledge error.')
+                return
+            elif 'n' == choice or 'N' == choice or '' == choice:
+                understand = True
+                raise RuntimeError("Error has not been acknowledged.")
+            else:
+                print("Cannot understand your input. Please repeat.")
 
     def reset(self):
-        resetByte = (0000000000000000).to_bytes(16, byteorder='big')
+        """Resets the controller.
+
+        Because of invalid commands the controller can remain in a
+        faulty state. The function sends 17  zero bits to the controller to
+        clear the command status.
+        """
+        resetByte = (00000000000000000).to_bytes(17, byteorder='big')
         self.write(resetByte)
         answer = self.read()
         if (b'') is not answer:
@@ -141,8 +186,18 @@ class celerotonCC75(serial.Serial):
         pass
 
     def checksum(self, command):
+        """Computes the checksum
+
+        For a given command, which is intended to be sent to the controller,
+        the function computes the checksum
+
+        :param command: Command for the controller
+        :type command: tuple or list of int
+        :returns checksum: String of the status (for user)
+        :rtype checksum: int
+        """
         commandSum = sum(command)
-        checksum = ~(commandSum + 1) & 0xFF
+        checksum = (~commandSum + 1) & 0xFF
         return checksum
 
     def hexInv(self, hexStr):
@@ -157,9 +212,7 @@ if __name__ == '__main__':
                         format='%(asctime)s - %(name)s - %(levelname)s'
                         ' - %(message)s')
     ctCC75_400 = celerotonCC75('COM10')
-    checkInput = (2, 0)
-    testi = ctCC75_400.checksum(checkInput)
-#     ctCC75_400.getStatus()
+    ctCC75_400.getStatus()
 #     ctCC75_400.start()
 #     time.sleep(3)
 #     ctCC75_400.stop()
