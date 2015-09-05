@@ -89,33 +89,20 @@ class celerotonCC75(serial.Serial):
         statusByte = b'\x02\x00\xFE'
         self.write(statusByte)
         answer = self.read(16)
-        # Case for OK status
-        if 5 == len(answer):
+        try:
             statusInt = struct.unpack('<BBBBB', answer)
-            statusString = self.statusDict[statusInt[2]]
-            if 0 == statusInt[2]:
-                print(statusString)
-                return
-            elif (int('0008', 16) == statusInt[2] or
-                  int('0010', 16) == statusInt[2] or
-                  int('0020', 16) == statusInt[2]):
-                self.ackError(answer, statusString)
-            elif (int('0040', 16) == statusInt[2] or
-                  int('0080', 16) == statusInt[2]):
-                print(statusString)
-            else:
-                raise ValueError('Unknown status code.')
-        elif 7 == len(answer):
+        except struct.error:
             statusInt = struct.unpack('<BBHHB', answer)
-            statusString = self.statusDict[statusInt[2]]
-            if (int('0200', 16) == statusInt[2]):
-                self.ackError(answer, statusString)
-            elif (int('0100', 16) == statusInt[2] or
-                  int('4000', 16) == statusInt[2] or
-                  int('8000', 16) == statusInt[2]):
-                print(statusString)
-            else:
-                raise ValueError('Unknown status code.')
+        statusString = self.statusDict[statusInt[2]]
+        if 0 == statusInt[2]:
+            print("Status is:", statusString)
+            return
+        elif (int('0008', 16) == statusInt[2] or
+              int('0010', 16) == statusInt[2] or
+              int('0020', 16) == statusInt[2]):
+            self.ackError(answer, statusString)
+        elif (int('0040', 16) == statusInt[2] or
+              int('0080', 16) == statusInt[2]):
             print(statusString)
         else:
             raise ValueError('Unknown status code.')
@@ -136,10 +123,7 @@ class celerotonCC75(serial.Serial):
 
         .. todo:: Complete all values
         """
-        try:
-            varFlag = self.varDict[varName]
-        except:
-            raise ValueError('varName cannot be found.')
+        varFlag = self.varDict[varName]
         checkInt = self.checksum((3, 4, varFlag))
         readCommand = struct.pack('<BBBB', 3, 4, varFlag, checkInt)
         self.write(readCommand)
@@ -178,14 +162,8 @@ class celerotonCC75(serial.Serial):
 
         .. todo:: Complete all values
         """
-        try:
-            varFlag = self.varDict[varName]
-        except:
-            raise ValueError('varName cannot be found.')
-        try:
-            varType = self.varTypeDict[varName]
-        except:
-            raise ValueError('varType cannot be found.')
+        varFlag = self.varDict[varName]
+        varType = self.varTypeDict[varName]
         writeInt = (8, 5, varFlag, varType, varValue)
         if 1 == varType:
             writeCom = struct.pack('<BBBBh', *writeInt)
@@ -246,7 +224,6 @@ class celerotonCC75(serial.Serial):
                 # Create the command Byte
                 ackInt = (4, 1, statusInt[2])
                 ackBytes = struct.pack('<BBB', *ackInt)
-                # TODO write correct input string
                 ackBytes = (ackBytes + struct.pack('>B', statusInt[2]) +
                             bytes([checksum]))
                 self.write(ackBytes)
