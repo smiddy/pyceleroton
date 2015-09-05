@@ -1,8 +1,5 @@
-import sys
 import serial
 import struct
-import binascii
-import io
 import time
 import logging
 
@@ -251,9 +248,6 @@ class celerotonCC75(serial.Serial):
             raise RuntimeError("Cannot reset controller.")
         return
 
-    def monitor(self, valuename):
-        pass
-
     def checksum(self, command):
         """Computes the checksum
 
@@ -275,11 +269,13 @@ class celerotonCC75(serial.Serial):
             raise TypeError('Command must be int or bytes.')
         return checksum
 
-    def hexInv(self, hexStr):
-        val = int(hexStr, 8)
-        nbits = 8  # Set the number of required bits
-        invHexStr = hex((~val + (1 << nbits)) % (1 << nbits))
-        return invHexStr
+    def monitor(self, valuename, threshold):
+        """Monitor a variable and raises RuntimeError on threshold.
+
+        The function 
+        """
+        pass
+
 
 if __name__ == '__main__':
     logging.basicConfig(filename="DEBUG_celeroton.log",
