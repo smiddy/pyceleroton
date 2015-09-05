@@ -5,6 +5,7 @@ import binascii
 import io
 import time
 import logging
+from test.test_enum import Answer
 
 
 class celerotonCC75(serial.Serial):
@@ -42,6 +43,11 @@ class celerotonCC75(serial.Serial):
                            int('4000', 16): 'Enable',
                            int('8000', 16): 'Motor overtemperature'
                            }
+        # dictionary for the variables, not all values included
+        self.varDict = {"reference speed": 0,   # rpm
+                        "actual speed": 1,      # rpm
+                        "temperature": 4        # degree C
+                        }
         return
 
     def start(self):
@@ -110,8 +116,45 @@ class celerotonCC75(serial.Serial):
             raise ValueError('Unknown status code.')
         return
 
-    def readValue(self, valuename):
-        pass
+    def readValue(self, varName):
+        """Read a selected value
+
+        The function read the value of varName. Currently implemented:
+        * "reference speed" in rpm
+        * "actual speed" in rpm
+        * "temperature" in Celsius
+
+        :param varName: Desired value
+        :type varName: str
+        :returns value: Actual value
+        :rtype value: int
+        """
+        try:
+            varFlag = self.varDict[varName]
+        except:
+            raise ValueError('varName cannot be found.')
+        checkInt = self.checksum((3, 4, varFlag))
+        readCommand = struct.pack('<BBBB', 3, 4, varFlag, checkInt)
+        self.write(readCommand)
+        answer = self.read(16)
+        varType = answer[2]
+        if (7 != answer[0]) or (4 != answer[1]):
+            raise RuntimeError("Cannot interpret answer.")
+        # Get the value according to its variable type
+        if 1 == varType:
+            answerInt = struct.unpack('<BBBhB', answer)
+        elif 2 == varType:
+            answerInt = struct.unpack('<BBBHB', answer)
+        elif 3 == varType:
+            answerInt = struct.unpack('<BBBiB', answer)
+        elif 4 == varType:
+            answerInt = struct.unpack('<BBBIB', answer)
+        elif 5 == varType:
+            answerInt = struct.unpack('<BBBfB', answer)
+        else:
+            raise ValueError("Cannot interpret answer.")
+        value = answerInt[3]
+        return value
 
     def writeValue(self, valuename, valuenr):
         pass
@@ -212,7 +255,9 @@ if __name__ == '__main__':
                         format='%(asctime)s - %(name)s - %(levelname)s'
                         ' - %(message)s')
     ctCC75_400 = celerotonCC75('COM10')
-    ctCC75_400.getStatus()
+    wanted = "reference speed"
+    value = ctCC75_400.readValue(wanted)
+    print(value)
 #     ctCC75_400.start()
 #     time.sleep(3)
 #     ctCC75_400.stop()
