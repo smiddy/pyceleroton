@@ -5,7 +5,6 @@ import binascii
 import io
 import time
 import logging
-from test.test_enum import Answer
 
 
 class celerotonCC75(serial.Serial):
@@ -48,6 +47,12 @@ class celerotonCC75(serial.Serial):
                         "actual speed": 1,      # rpm
                         "temperature": 4        # degree C
                         }
+        # dict for the variable types
+        # Int16 = 1, UInt16 = 2, Int32 = 3, UInt32 = 4, FLOAT = 5
+        self.varTypeDict = {"reference speed": 3,
+                            "actual speed": 3,
+                            "temperature": 1
+                            }
         return
 
     def start(self):
@@ -117,17 +122,19 @@ class celerotonCC75(serial.Serial):
         return
 
     def readValue(self, varName):
-        """Read a selected value
+        """Read a selected value.
 
-        The function read the value of varName. Currently implemented:
+        The function reads the value of varName. Currently implemented:
         * "reference speed" in rpm
         * "actual speed" in rpm
         * "temperature" in Celsius
 
         :param varName: Desired value
         :type varName: str
-        :returns value: Actual value
-        :rtype value: int
+        :returns varValue: Actual value
+        :rtype varValue: int
+
+        .. todo:: Complete all values
         """
         try:
             varFlag = self.varDict[varName]
@@ -153,11 +160,53 @@ class celerotonCC75(serial.Serial):
             answerInt = struct.unpack('<BBBfB', answer)
         else:
             raise ValueError("Cannot interpret answer.")
-        value = answerInt[3]
-        return value
+        varValue = answerInt[3]
+        return varValue
 
-    def writeValue(self, valuename, valuenr):
-        pass
+    def writeValue(self, varName, varValue):
+        """Write a selected value.
+
+        The function writes the varValue of varName. Currently implemented:
+        * "reference speed" in rpm
+        * "actual speed" in rpm
+        * "temperature" in Celsius
+
+        :param varName: Desired value
+        :type varName: str
+        :param varValue: Actual value
+        :type varValue: int
+
+        .. todo:: Complete all values
+        """
+        try:
+            varFlag = self.varDict[varName]
+        except:
+            raise ValueError('varName cannot be found.')
+        try:
+            varType = self.varTypeDict[varName]
+        except:
+            raise ValueError('varType cannot be found.')
+        writeInt = (8, 5, varFlag, varType, varValue)
+        if 1 == varType:
+            writeCom = struct.pack('<BBBBh', *writeInt)
+        elif 2 == varType:
+            writeCom = struct.pack('<BBBBH', *writeInt)
+        elif 3 == varType:
+            writeCom = struct.pack('<BBBBi', *writeInt)
+        elif 4 == varType:
+            writeCom = struct.pack('<BBBBI', *writeInt)
+        elif 5 == varType:
+            writeCom = struct.pack('<BBBBf', *writeInt)
+        else:
+            raise ValueError("Cannot interpret answer.")
+        checkInt = self.checksum(writeCom)
+        writeCom += struct.pack('<B', checkInt)
+        self.write(writeCom)
+        answer = self.read(16)
+        varType = answer[2]
+        if (2 != answer[0])or(5 != answer[1])or(int('f9', 16) != answer[2]):
+                raise RuntimeError("Cannot interpret answer.")
+        return
 
     def errCheck(self, answer):
         """Takes the answer of the controller and raises error.
@@ -235,12 +284,18 @@ class celerotonCC75(serial.Serial):
         the function computes the checksum
 
         :param command: Command for the controller
-        :type command: tuple or list of int
+        :type command: tuple/list of int, bytes
         :returns checksum: String of the status (for user)
         :rtype checksum: int
         """
-        commandSum = sum(command)
-        checksum = (~commandSum + 1) & 0xFF
+        if int == type(command):
+            commandSum = sum(command)
+            checksum = (~commandSum + 1) & 0xFF
+        elif bytes == type(command):
+            commandSum = sum(list(command))
+            checksum = (~commandSum + 1) & 0xFF
+        else:
+            raise TypeError('Command must be int or bytes.')
         return checksum
 
     def hexInv(self, hexStr):
@@ -255,9 +310,9 @@ if __name__ == '__main__':
                         format='%(asctime)s - %(name)s - %(levelname)s'
                         ' - %(message)s')
     ctCC75_400 = celerotonCC75('COM10')
-    wanted = "reference speed"
-    value = ctCC75_400.readValue(wanted)
-    print(value)
+    wantedVar = "reference speed"
+    wantedValue = 600
+    ctCC75_400.writeValue(wantedVar, wantedValue)
 #     ctCC75_400.start()
 #     time.sleep(3)
 #     ctCC75_400.stop()
