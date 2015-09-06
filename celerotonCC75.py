@@ -2,6 +2,7 @@ import serial
 import struct
 import time
 import logging
+import threading
 
 
 class celerotonCC75(serial.Serial):
@@ -79,7 +80,7 @@ class celerotonCC75(serial.Serial):
     def getStatus(self):
         """Get the current status.
 
-        The function demands the current status of the controller.
+        The method demands the current status of the controller.
         If there is a problem, the funtion tries to use method ackError
         to clear them.
         """
@@ -108,7 +109,7 @@ class celerotonCC75(serial.Serial):
     def readValue(self, varName):
         """Read a selected value.
 
-        The function reads the value of varName. Currently implemented:
+        The method reads the value of varName. Currently implemented:
         * "reference speed" in rpm
         * "actual speed" in rpm
         * "temperature" in Celsius
@@ -130,9 +131,9 @@ class celerotonCC75(serial.Serial):
             raise RuntimeError("Cannot interpret answer.")
         # Get the value according to its variable type
         if 1 == varType:
-            answerInt = struct.unpack('<BBBhB', answer)
+            answerInt = struct.unpack('<BBBiB', answer)
         elif 2 == varType:
-            answerInt = struct.unpack('<BBBHB', answer)
+            answerInt = struct.unpack('<BBBIB', answer)
         elif 3 == varType:
             answerInt = struct.unpack('<BBBiB', answer)
         elif 4 == varType:
@@ -147,7 +148,7 @@ class celerotonCC75(serial.Serial):
     def writeValue(self, varName, varValue):
         """Write a selected value.
 
-        The function writes the varValue of varName. Currently implemented:
+        The method writes the varValue of varName. Currently implemented:
         * "reference speed" in rpm
         * "actual speed" in rpm
         * "temperature" in Celsius
@@ -200,7 +201,7 @@ class celerotonCC75(serial.Serial):
     def ackError(self, statusCode, statusStr):
         """Acknowledge an error
 
-        The function takes the answered statusCode of the controller and the
+        The method takes the answered statusCode of the controller and the
         already found statusStr. The user is asked to acknowledge the error
         and, if answered with yes, the error is aknowledged.
 
@@ -238,7 +239,7 @@ class celerotonCC75(serial.Serial):
         """Resets the controller.
 
         Because of invalid commands the controller can remain in a
-        faulty state. The function sends 17  zero bits to the controller to
+        faulty state. The method sends 17  zero bits to the controller to
         clear the command status.
         """
         resetByte = (00000000000000000).to_bytes(17, byteorder='big')
@@ -252,14 +253,14 @@ class celerotonCC75(serial.Serial):
         """Computes the checksum
 
         For a given command, which is intended to be sent to the controller,
-        the function computes the checksum
+        the method computes the checksum
 
         :param command: Command for the controller
         :type command: tuple/list of int, bytes
         :returns checksum: String of the status (for user)
         :rtype checksum: int
         """
-        if int == type(command):
+        if tuple == type(command) or list == type(command):
             commandSum = sum(command)
             checksum = (~commandSum + 1) & 0xFF
         elif bytes == type(command):
@@ -269,12 +270,40 @@ class celerotonCC75(serial.Serial):
             raise TypeError('Command must be int or bytes.')
         return checksum
 
-    def monitor(self, valuename, threshold):
-        """Monitor a variable and raises RuntimeError on threshold.
+    def monitor(self, varName, threshold):
+        """Monitor a variable and stops motor on threshold.
 
-        The function 
+        The method sets up a threading class object and monitors varName until
+        the thread is closed. In case of threspassing the threshold, the motor
+        is stopped and a runtime error is raised. The function creates a Thread
+        instance of class threading.
+
+        :param varName: Name of variable to be monitored
+        :type varName: str
+        :param threshold: Threshold for value
+        :type threshold: int
+        :returns self.thread: Running monitor thread
+        :rtype self.thread: threading.Thread
         """
-        pass
+        def monThread(varName, threshold):
+            """Local function for threading
+            """
+            while True:
+                with threading.Lock():
+                    varValue = self.readValue(varName)
+                if threshold >= varValue:
+                    print("Value acquired")
+                    time.sleep(1)
+                else:
+                    self.stop()
+                    raise RuntimeError('Threshold exceeded. Motor stopped.')
+            return
+
+        self.thread = threading.Thread(target=monThread,
+                                       args=(varName, threshold))
+        self.thread.daemon = True
+        self.thread.start()
+        return
 
 
 if __name__ == '__main__':
@@ -283,9 +312,12 @@ if __name__ == '__main__':
                         format='%(asctime)s - %(name)s - %(levelname)s'
                         ' - %(message)s')
     ctCC75_400 = celerotonCC75('COM10')
-    wantedVar = "reference speed"
-    wantedValue = 600
-    ctCC75_400.writeValue(wantedVar, wantedValue)
+    wantedVar = "temperature"
+    threshold = 60
+    ctCC75_400.monitor(wantedVar, threshold)
+    time.sleep(5)
+    print(ctCC75_400.thread.is_alive())
+#     ctCC75_400.writeValue(wantedVar, wantedValue)
 #     ctCC75_400.start()
 #     time.sleep(3)
 #     ctCC75_400.stop()
