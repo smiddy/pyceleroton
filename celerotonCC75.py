@@ -57,8 +57,9 @@ class celerotonCC75(serial.Serial):
         """Starts the motor.
         """
         startByte = b'\x02\x02\xFC'
-        self.write(startByte)
-        answer = self.read(16)
+        with threading.Lock():
+            self.write(startByte)
+            answer = self.read(16)
         if startByte != answer:
             self.errCheck(answer)
         else:
@@ -69,8 +70,9 @@ class celerotonCC75(serial.Serial):
         """Stops the motor.
         """
         stopByte = b'\x02\x03\xFB'
-        self.write(stopByte)
-        answer = self.read(16)
+        with threading.Lock():
+            self.write(stopByte)
+            answer = self.read(16)
         if stopByte != answer:
             self.errCheck(answer)
         else:
@@ -85,8 +87,9 @@ class celerotonCC75(serial.Serial):
         to clear them.
         """
         statusByte = b'\x02\x00\xFE'
-        self.write(statusByte)
-        answer = self.read(16)
+        with threading.Lock():
+            self.write(statusByte)
+            answer = self.read(16)
         try:
             statusInt = struct.unpack('<BBBBB', answer)
         except struct.error:
@@ -124,8 +127,9 @@ class celerotonCC75(serial.Serial):
         varFlag = self.varDict[varName]
         checkInt = self.checksum((3, 4, varFlag))
         readCommand = struct.pack('<BBBB', 3, 4, varFlag, checkInt)
-        self.write(readCommand)
-        answer = self.read(16)
+        with threading.Lock():
+            self.write(readCommand)
+            answer = self.read(16)
         varType = answer[2]
         if (7 != answer[0]) or (4 != answer[1]):
             raise RuntimeError("Cannot interpret answer.")
@@ -177,8 +181,9 @@ class celerotonCC75(serial.Serial):
             raise ValueError("Cannot interpret answer.")
         checkInt = self.checksum(writeCom)
         writeCom += struct.pack('<B', checkInt)
-        self.write(writeCom)
-        answer = self.read(16)
+        with threading.Lock():
+            self.write(writeCom)
+            answer = self.read(16)
         varType = answer[2]
         if (2 != answer[0])or(5 != answer[1])or(int('f9', 16) != answer[2]):
                 raise RuntimeError("Cannot interpret answer.")
@@ -289,8 +294,7 @@ class celerotonCC75(serial.Serial):
             """Local function for threading
             """
             while True:
-                with threading.Lock():
-                    varValue = self.readValue(varName)
+                varValue = self.readValue(varName)
                 if threshold >= varValue:
                     print("Value acquired")
                     time.sleep(1)
