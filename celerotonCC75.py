@@ -6,8 +6,34 @@ import threading
 
 
 class celerotonCC75(serial.Serial):
-    '''
-    classdocs
+    '''Class for the celeroton CC75 frequency converter.
+
+    The class
+    celerotonCC75 is used for frequency converters of the CC75
+    series. pyserial is applied for serial communication with
+    the controller. Furthermore, threading is used for the
+    monitoring.
+
+    :requires: pyserial (>=2.7)
+
+    *Example*::
+
+        ctCC75_400 = celerotonCC75('COM10')
+        # Set up a temperature monitoring
+        monitVar = "temperature"
+        threshold = 60
+        ctCC75_400.monitor(monitVar, threshold)
+        time.sleep(2)
+        print(ctCC75_400.thread.is_alive())
+        # Get the reference motor speed
+        wantedVar = "reference speed"
+        result = ctCC75_400.readValue(wantedVar)
+        print("Motor will start with", result, "rpm.")
+        ctCC75_400.start()
+        time.sleep(3)
+        ctCC75_400.stop()
+        ctCC75_400.close()
+
     '''
 
     def __init__(self, serPort):
@@ -57,9 +83,8 @@ class celerotonCC75(serial.Serial):
         """Starts the motor.
         """
         startByte = b'\x02\x02\xFC'
-        with threading.Lock():
-            self.write(startByte)
-            answer = self.read(16)
+        self.write(startByte)
+        answer = self.read(16)
         if startByte != answer:
             self.errCheck(answer)
         else:
@@ -70,9 +95,8 @@ class celerotonCC75(serial.Serial):
         """Stops the motor.
         """
         stopByte = b'\x02\x03\xFB'
-        with threading.Lock():
-            self.write(stopByte)
-            answer = self.read(16)
+        self.write(stopByte)
+        answer = self.read(16)
         if stopByte != answer:
             self.errCheck(answer)
         else:
@@ -87,9 +111,8 @@ class celerotonCC75(serial.Serial):
         to clear them.
         """
         statusByte = b'\x02\x00\xFE'
-        with threading.Lock():
-            self.write(statusByte)
-            answer = self.read(16)
+        self.write(statusByte)
+        answer = self.read(16)
         try:
             statusInt = struct.unpack('<BBBBB', answer)
         except struct.error:
@@ -127,9 +150,8 @@ class celerotonCC75(serial.Serial):
         varFlag = self.varDict[varName]
         checkInt = self.checksum((3, 4, varFlag))
         readCommand = struct.pack('<BBBB', 3, 4, varFlag, checkInt)
-        with threading.Lock():
-            self.write(readCommand)
-            answer = self.read(16)
+        self.write(readCommand)
+        answer = self.read(16)
         varType = answer[2]
         if (7 != answer[0]) or (4 != answer[1]):
             raise RuntimeError("Cannot interpret answer.")
@@ -181,9 +203,8 @@ class celerotonCC75(serial.Serial):
             raise ValueError("Cannot interpret answer.")
         checkInt = self.checksum(writeCom)
         writeCom += struct.pack('<B', checkInt)
-        with threading.Lock():
-            self.write(writeCom)
-            answer = self.read(16)
+        self.write(writeCom)
+        answer = self.read(16)
         varType = answer[2]
         if (2 != answer[0])or(5 != answer[1])or(int('f9', 16) != answer[2]):
                 raise RuntimeError("Cannot interpret answer.")
@@ -296,13 +317,11 @@ class celerotonCC75(serial.Serial):
             while True:
                 varValue = self.readValue(varName)
                 if threshold >= varValue:
-                    print("Value acquired")
-                    time.sleep(1)
+                    time.sleep(5)
                 else:
                     self.stop()
                     raise RuntimeError('Threshold exceeded. Motor stopped.')
             return
-
         self.thread = threading.Thread(target=monThread,
                                        args=(varName, threshold))
         self.thread.daemon = True
@@ -316,13 +335,17 @@ if __name__ == '__main__':
                         format='%(asctime)s - %(name)s - %(levelname)s'
                         ' - %(message)s')
     ctCC75_400 = celerotonCC75('COM10')
-    wantedVar = "temperature"
+    # Set up a temperature monitoring
+    monitVar = "temperature"
     threshold = 60
-    ctCC75_400.monitor(wantedVar, threshold)
-    time.sleep(5)
+    ctCC75_400.monitor(monitVar, threshold)
+    time.sleep(2)
     print(ctCC75_400.thread.is_alive())
-#     ctCC75_400.writeValue(wantedVar, wantedValue)
-#     ctCC75_400.start()
-#     time.sleep(3)
-#     ctCC75_400.stop()
-#     ctCC75_400.close()
+    # Get the reference motor speed
+    wantedVar = "reference speed"
+    result = ctCC75_400.readValue(wantedVar)
+    print("Motor will start with", result, "rpm.")
+    ctCC75_400.start()
+    time.sleep(3)
+    ctCC75_400.stop()
+    ctCC75_400.close()
