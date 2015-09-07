@@ -16,6 +16,9 @@ class celerotonCC75(serial.Serial):
 
     :requires: pyserial (>=2.7)
 
+    :param serPort: Serial port of controller
+    :type serPort: int or str
+
     *Example*::
 
         ctCC75_400 = celerotonCC75('COM10')
@@ -136,6 +139,7 @@ class celerotonCC75(serial.Serial):
         """Read a selected value.
 
         The method reads the value of varName. Currently implemented:
+
         * "reference speed" in rpm
         * "actual speed" in rpm
         * "temperature" in Celsius
@@ -175,6 +179,7 @@ class celerotonCC75(serial.Serial):
         """Write a selected value.
 
         The method writes the varValue of varName. Currently implemented:
+
         * "reference speed" in rpm
         * "actual speed" in rpm
         * "temperature" in Celsius
