@@ -6,7 +6,7 @@ setup(
       platforms=["win-amd64", 'win32'],
       author="Markus J Schmidt",
       author_email='schmidt@ifd.mavt.ethz.ch',
-      license="GNU GPLv3",
+      license="GNU GPLv3+",
       url="https://github.com/smiddy/pyceleroton",
       packages=find_packages(),
       install_requires=['pyserial>=2.7']
