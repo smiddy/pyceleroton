@@ -33,5 +33,3 @@ type `serPort`: int or str
     time.sleep(3)
     ctCC75_400.stop()
     ctCC75_400.close()
-
-'''
